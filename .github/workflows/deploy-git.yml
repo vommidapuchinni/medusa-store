@@ -38,6 +38,9 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install Redis CLI
+        run: sudo apt-get install redis-tools -y
+
       - name: Install dependencies
         run: npm install
 
