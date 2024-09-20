@@ -1,4 +1,4 @@
-name: Deploy Medusa to EC2
+name: Deploy Medusa
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '18'
@@ -21,29 +21,27 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Medusa application
-        run: npm run build
-
       - name: Copy files to EC2
         env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Add your private SSH key to GitHub secrets
-          HOST: ${{ secrets.EC2_HOST }}              # Add your EC2 instance public IP or DNS to GitHub secrets
-          USER: ec2-user                             # Change to your EC2 username if needed
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Your private key from GitHub secrets
+          HOST: ${{ secrets.EC2_HOST }}              # Your EC2 instance public IP or DNS
+          USER: ec2-user                             # Change as needed
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* $USER@$HOST:/root/medusa-store/  # Change to your deployment path
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* $USER@$HOST:/root/medusa-store/
 
       - name: SSH into EC2 and start the application
         env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Add your private SSH key to GitHub secrets
-          HOST: ${{ secrets.EC2_HOST }}              # Add your EC2 instance public IP or DNS to GitHub secrets
-          USER: ec2-user                             # Change to your EC2 username if needed
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Your private key from GitHub secrets
+          HOST: ${{ secrets.EC2_HOST }}              # Your EC2 instance public IP or DNS
+          USER: ec2-user                             # Change as needed
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
-            cd /root/medusa-store/                    # Change to your deployment path
-            npm install                               # Install dependencies on EC2
-            npm run start                             # Start your Medusa application
+            cd /root/medusa-store/
+            npm install
+            npm run build
+            npm run start
           EOF
