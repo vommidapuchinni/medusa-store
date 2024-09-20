@@ -11,7 +11,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:13  # Use a PostgreSQL 13 image
+        image: postgres:13
         env:
           POSTGRES_DB: medusa_db
           POSTGRES_USER: medusa_user
@@ -39,12 +39,14 @@ jobs:
       - name: Install cross-env
         run: npm install --save-dev cross-env
 
+      - name: Install Medusa CLI
+        run: npm install -g @medusajs/medusa-cli
+
       - name: Wait for PostgreSQL to be ready
         run: until pg_isready -h localhost -p 5432 -U medusa_user; do sleep 1; done
 
       - name: Run database migrations
         run: |
-          npm run build
           medusa migrations run  # Runs migrations to set up your DB schema
 
       - name: Build and start Medusa server
