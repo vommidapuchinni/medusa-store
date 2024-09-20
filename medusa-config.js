@@ -21,17 +21,17 @@ try {
   dotenv.config({ path: process.cwd() + "/" + ENV_FILE_NAME });
 } catch (e) {}
 
-// CORS when consuming Medusa from admin
+// CORS settings
 const ADMIN_CORS =
   process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001";
 
-// CORS to avoid issues when consuming Medusa from a client
 const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";
 
+// Database and Redis URLs
 const DATABASE_URL =
-  process.env.DATABASE_URL || "postgres://medusa_user:chinni@127.0.0.1:5432/medusa_db";
+  process.env.DATABASE_URL || "postgres://medusa_user:chinni@localhost:5432/medusa_db";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 const plugins = [
   `medusa-fulfillment-manual`,
@@ -59,7 +59,7 @@ const projectConfig = {
   store_cors: STORE_CORS,
   database_url: DATABASE_URL,
   admin_cors: ADMIN_CORS,
-  redis_url: REDIS_URL // Uncomment this line to enable REDIS
+  redis_url: REDIS_URL,
 };
 
 module.exports = {
