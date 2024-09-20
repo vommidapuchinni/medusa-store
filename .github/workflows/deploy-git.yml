@@ -21,6 +21,22 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install cross-env (if not already installed)
+        run: npm install --save-dev cross-env
+
+      - name: Set up PostgreSQL service
+        uses: Harmon758/postgresql-action@v1.3
+        with:
+          postgresql version: '13'  # Ensure the correct version of PostgreSQL
+          postgresql user: 'medusa_user'
+          postgresql password: 'chinni'
+          postgresql database: 'medusa_db'
+
+      - name: Run database migrations
+        run: |
+          npm run build
+          medusa migrations run  # Runs migrations to set up your DB schema
+
       - name: Build and start Medusa server
         run: |
           npm run build
