@@ -19,7 +19,9 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          rm -rf node_modules
+          npm install
 
       - name: Copy files to EC2
         env:
@@ -41,7 +43,9 @@ jobs:
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
             cd /home/ubuntu/medusa-store/
+            rm -rf node_modules
             npm install
+            npm run clean
             npm run build
             npm run start
           EOF
