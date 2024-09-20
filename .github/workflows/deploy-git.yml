@@ -38,27 +38,25 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install Redis CLI
-        run: sudo apt-get install redis-tools -y
-
       - name: Install dependencies
         run: npm install
 
-      - name: Install cross-env
-        run: npm install --save-dev cross-env
-
-      - name: Install Medusa CLI
-        run: npm install -g @medusajs/medusa-cli
-
       - name: Wait for PostgreSQL to be ready
-        run: until pg_isready -h localhost -p 5432 -U medusa_user; do sleep 1; done
+        run: |
+          until pg_isready -h localhost -p 5432 -U medusa_user; do
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
 
       - name: Wait for Redis to be ready
-        run: until redis-cli -h redis ping; do sleep 1; done
+        run: |
+          until redis-cli -h redis ping; do
+            echo "Waiting for Redis..."
+            sleep 1
+          done
 
       - name: Run database migrations
-        run: |
-          medusa migrations run  # Runs migrations to set up your DB schema
+        run: medusa migrations run  # Runs migrations to set up your DB schema
 
       - name: Build and start Medusa server
         run: |
