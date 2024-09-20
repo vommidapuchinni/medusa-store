@@ -9,6 +9,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:13  # Use a PostgreSQL 13 image
+        env:
+          POSTGRES_DB: medusa_db
+          POSTGRES_USER: medusa_user
+          POSTGRES_PASSWORD: chinni
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U medusa_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -21,16 +36,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install cross-env (if not already installed)
+      - name: Install cross-env
         run: npm install --save-dev cross-env
 
-      - name: Set up PostgreSQL service
-        uses: Harmon758/postgresql-action@v1.3
-        with:
-          postgresql version: '13'  # Ensure the correct version of PostgreSQL
-          postgresql user: 'medusa_user'
-          postgresql password: 'chinni'
-          postgresql database: 'medusa_db'
+      - name: Wait for PostgreSQL to be ready
+        run: until pg_isready -h localhost -p 5432 -U medusa_user; do sleep 1; done
 
       - name: Run database migrations
         run: |
