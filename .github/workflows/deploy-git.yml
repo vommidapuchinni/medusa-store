@@ -34,7 +34,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
           HOST: ${{ secrets.EC2_HOST }}              
-          USER: ubuntu                                
+          USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
@@ -44,7 +44,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
           HOST: ${{ secrets.EC2_HOST }}              
-          USER: ubuntu                                
+          USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
@@ -54,5 +54,9 @@ jobs:
             npm install
             npm run clean
             npm run build
-            npm run start
+            
+            # Start the application in the background and log output
+            nohup npm run start > medusa.log 2>&1 &
+            echo "Medusa application started. Logs can be found in medusa.log"
+            exit
           EOF
