@@ -23,7 +23,7 @@ jobs:
       - name: Build the application
         run: npm run build
 
-      - name: Deploy to EC2  
+      - name: Deploy to EC2
         env:
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USER }}
