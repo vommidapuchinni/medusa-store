@@ -30,6 +30,13 @@ jobs:
         run: |
           npm install
 
+      - name: Count and List Files to Copy
+        id: file_info
+        run: |
+          FILE_COUNT=$(find . -maxdepth 1 -type f | wc -l)
+          echo "Files to be copied: $FILE_COUNT"
+          ls -1 | grep -v 'private_key.pem'  # Exclude private_key.pem from the list
+          
       - name: Copy files to EC2
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
@@ -38,7 +45,9 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
+          echo "Copying files to EC2..."
           scp -o StrictHostKeyChecking=no -i private_key.pem -v -r ./* $USER@$HOST:/home/ubuntu/medusa-store/
+          echo "Files copied to EC2."
 
       - name: SSH into EC2 and start the application
         env:
