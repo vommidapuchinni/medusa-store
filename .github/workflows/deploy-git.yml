@@ -18,30 +18,37 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Cache node modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
         run: |
-          rm -rf node_modules
           npm install
 
       - name: Copy files to EC2
         env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Your private key from GitHub secrets
-          HOST: ${{ secrets.EC2_HOST }}              # Your EC2 instance public IP or DNS
-          USER: ubuntu                                # Change to 'ubuntu' for Ubuntu AMIs
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
+          HOST: ${{ secrets.EC2_HOST }}              
+          USER: ubuntu                                
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* $USER@$HOST:/home/ubuntu/medusa-store/
+          scp -o StrictHostKeyChecking=no -i private_key.pem -v -r ./* $USER@$HOST:/home/ubuntu/medusa-store/
 
       - name: SSH into EC2 and start the application
         env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Your private key from GitHub secrets
-          HOST: ${{ secrets.EC2_HOST }}              # Your EC2 instance public IP or DNS
-          USER: ubuntu                                # Change to 'ubuntu' for Ubuntu AMIs
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
+          HOST: ${{ secrets.EC2_HOST }}              
+          USER: ubuntu                                
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key.pem -v $USER@$HOST << 'EOF'
             cd /home/ubuntu/medusa-store/
             rm -rf node_modules
             npm install
