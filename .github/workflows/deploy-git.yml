@@ -1,0 +1,36 @@
+name: Deploy Medusa
+
+on:
+  push:
+    branches:
+      - master  # Trigger on the master branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'  # Adjust if necessary
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build the application
+        run: npm run build
+
+      - name: Deploy to EC2
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+          PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r . $USER@$HOST:/path/to/deployment/folder
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST "cd /path/to/deployment/folder && npm install && npm run start"
+
