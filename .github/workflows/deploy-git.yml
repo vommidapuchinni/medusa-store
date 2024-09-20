@@ -60,3 +60,7 @@ jobs:
             echo "Medusa application started. Logs can be found in medusa.log"
             exit
           EOF
+
+
+
+
