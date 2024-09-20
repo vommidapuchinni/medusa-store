@@ -31,6 +31,5 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r . $USER@$HOST:/path/to/deployment/folder
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST "cd /path/to/deployment/folder && npm install && npm run start"
-
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* $USER@$HOST:/home/ubuntu/medusa-store
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST "cd /home/ubuntu/medusa-store && npm install && npm run start"
