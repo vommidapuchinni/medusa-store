@@ -40,4 +40,5 @@ jobs:
           terraform apply -auto-approve
 
       - name: Retrieve EC2 Instance IP
-        run: echo "Instance IP: $(terraform output -raw instance_ip)"
+        run: |
+          echo "Instance IP: $(terraform output -raw instance_ip)"
