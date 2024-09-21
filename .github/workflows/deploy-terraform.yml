@@ -48,6 +48,12 @@ jobs:
           terraform apply -auto-approve tfplan
         working-directory: ./terraform
 
+      - name: Store EC2 Instance IP
+        if: github.event.inputs.action == 'apply'
+        id: instance_ip
+        run: |
+          echo "INSTANCE_IP=$(terraform output -json instance_ip | jq -r .value)" >> $GITHUB_ENV
+
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: |
@@ -62,7 +68,7 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no -v ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -v ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
             set -e  # Exit immediately if a command exits with a non-zero status.
             sudo apt-get update -y
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
