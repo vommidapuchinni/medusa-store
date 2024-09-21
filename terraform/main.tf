@@ -120,14 +120,14 @@ resource "aws_instance" "medusa_ec2" {
               sudo systemctl start redis-server
 
               # Clone the Medusa app repository if it doesn't exist
-              if [ ! -d "./medusa-store" ]; then
-                git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+              if [ ! -d "$HOME/medusa-store" ]; then
+                git clone https://github.com/vommidapuchinni/medusa-store.git "$HOME/medusa-store"
               else
-                cd ./medusa-store && git pull
+                cd "$HOME/medusa-store" && git pull
               fi
 
               # Change directory to the cloned repo
-              cd ./medusa-store
+              cd "$HOME/medusa-store"
 
               # Install Medusa dependencies
               sudo npm install -g @medusajs/medusa-cli
