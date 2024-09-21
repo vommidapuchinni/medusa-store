@@ -30,9 +30,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
+          sudo rm -f /usr/local/bin/terraform  # Force remove any existing terraform file/binary
           wget https://releases.hashicorp.com/terraform/1.3.6/terraform_1.3.6_linux_amd64.zip
-          sudo rm -f /usr/local/bin/terraform  # Force remove any existing Terraform binary
-          unzip -o terraform_1.3.6_linux_amd64.zip  # Overwrite any existing file without prompt
+          unzip -o terraform_1.3.6_linux_amd64.zip  # Use -o flag to overwrite without asking
           sudo mv terraform /usr/local/bin/
           terraform -version
 
