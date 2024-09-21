@@ -1,46 +1,76 @@
-name: Deploy Medusa EC2 Instance
+provider "aws" {
+  region = "us-east-1" # Modify to your desired region
+}
 
-on:
-  push:
-    branches:
-      - master
+resource "aws_instance" "medusa_ec2" {
+  ami           = "ami-0e86e20dae9224db8"  # Ubuntu AMI
+  instance_type = "t2.micro"               # Instance type
+  key_name      = "medusagit"           # Your key name
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  # User data to install Node.js, Medusa, and other required tools
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo apt-get update -y
+              sudo apt-get install -y build-essential curl
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+              # Install Node.js
+              curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+              sudo apt-get install -y nodejs
 
-      - name: Set up AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+              # Install PM2 to manage Medusa server
+              sudo npm install -g pm2
 
-      - name: Install Terraform
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          wget https://releases.hashicorp.com/terraform/1.3.6/terraform_1.3.6_linux_amd64.zip
-          sudo rm -f /usr/local/bin/terraform  # Remove existing binary if it exists
-          unzip terraform_1.3.6_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          terraform -version
+              # Install Git
+              sudo apt-get install -y git
 
-      - name: Initialize Terraform
-        run: |
-          cd medusa-store/terraform
-          terraform init
+              # Clone Medusa Store
+              git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store
 
-      - name: Apply Terraform configuration
-        run: |
-          cd medusa-store/terraform
-          terraform apply -auto-approve
+              # Install Medusa Backend
+              cd /home/ubuntu/medusa-store
+              npm install
 
-      - name: Retrieve EC2 Instance IP
-        run: |
-          echo "Instance IP: $(terraform output -raw instance_ip)"
+              # Start Medusa Server
+              pm2 start "npm run develop"
+              EOF
 
+  # Allow SSH access
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+
+  tags = {
+    Name = "Medusa-EC2"
+  }
+}
+
+# Security group to allow SSH access and port 9000 for Medusa
+resource "aws_security_group" "allow_ssh" {
+  name        = "allow_ssh_and_medusa"
+  description = "Allow SSH and Medusa HTTP access"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Allow SSH from anywhere (consider restricting it)
+  }
+
+  ingress {
+    from_port   = 9000
+    to_port     = 9000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Allow HTTP traffic to Medusa
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Output the public IP of the instance
+output "instance_ip" {
+  description = "The public IP of the EC2 instance"
+  value       = aws_instance.medusa_ec2.public_ip
+}
