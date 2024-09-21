@@ -1,57 +1,81 @@
-name: Deploy Medusa EC2 Instance
+name: Deploy or Destroy Medusa
 
 on:
-  push:
-    branches:
-      - master
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Select the action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
 
 jobs:
-  deploy:
+  terraform:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          repository: 'vommidapuchinni/medusa-store'
 
-      - name: Install AWS CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
-          aws --version
-
-      - name: Set up AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Install Terraform
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          # Check if terraform exists and remove it (either file or directory)
-          if [ -e "/usr/local/bin/terraform" ]; then
-            echo "Removing existing Terraform installation..."
-            sudo rm -rf /usr/local/bin/terraform
-          fi
-          # Download and unzip Terraform
-          wget https://releases.hashicorp.com/terraform/1.3.6/terraform_1.3.6_linux_amd64.zip
-          unzip -o terraform_1.3.6_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          terraform -version
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.5.0
 
-      - name: Initialize Terraform
-        run: |
-          cd medusa-store/terraform
-          terraform init
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
 
-      - name: Apply Terraform configuration
-        run: |
-          cd medusa-store/terraform
-          terraform apply -auto-approve
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ./terraform
 
-      - name: Retrieve EC2 Instance IP
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
         run: |
-          cd medusa-store/terraform
-          echo "Instance IP: $(terraform output -raw instance_ip)"
+          terraform apply -auto-approve tfplan
+          echo "EC2_HOST=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
+        working-directory: ./terraform
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve
+        working-directory: ./terraform
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Update and Install Dependencies
+        if: github.event.inputs.action == 'apply'
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_HOST }} << 'EOF'
+            sudo apt-get update -y
+            sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
+            sudo systemctl start postgresql
+            sudo systemctl enable postgresql
+            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
+            sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+            git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
+            cd ~/medusa-store
+            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
+            echo "REDIS_URL=redis://localhost:6379" >> .env
+            npm install -g @medusajs/medusa-cli
+            npm install
+            npx medusa migrations run
+            npx medusa user -e medusaadmin@gmail.com -p chinni
+            nohup npm run start &> medusa.log &
+          EOF
