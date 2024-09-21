@@ -2,20 +2,10 @@ provider "aws" {
   region = "us-east-1" # Modify to your desired region
 }
 
-# Create an S3 bucket for storing Terraform state
-resource "aws_s3_bucket" "terraform_state" {
-  bucket = "terraform-statefile-storing" # Your specified bucket name
-  acl    = "private"
-
-  tags = {
-    Name = "terraform-state-bucket"
-  }
-}
-
-# Backend configuration
+# Backend configuration using the existing S3 bucket
 terraform {
   backend "s3" {
-    bucket = "terraform-statefile-storing"  # Directly set the bucket name
+    bucket = "terraform-statefile-storing"  # Your existing bucket name
     key    = "terraform/state"               # Path within the bucket
     region = "us-east-1"                     # Your AWS region
   }
