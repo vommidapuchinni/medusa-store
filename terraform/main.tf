@@ -102,14 +102,7 @@ resource "aws_instance" "medusa_ec2" {
               sudo apt-get install -y build-essential curl
 
               # Install Node.js
-              curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-
-              # Install PM2 to manage Medusa server
-              sudo npm install -g pm2
-
-              # Install Git
-              sudo apt-get install -y git
+              sudo apt-get install -y nodejs npm
 
               # Clone Medusa Store
               git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store
@@ -119,8 +112,8 @@ resource "aws_instance" "medusa_ec2" {
               npm install
 
               # Start Medusa Server
-              pm2 start "npm run develop"
-              EOF
+              npm run build
+              npm run start
 
   # Allow SSH access
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
