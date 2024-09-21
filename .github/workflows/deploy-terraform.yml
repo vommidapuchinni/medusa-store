@@ -46,17 +46,17 @@ jobs:
           cd terraform
           terraform apply -auto-approve tfplan
 
-      - name: Terraform Destroy
-        if: github.event.inputs.action == 'destroy'
+      - name: Terraform Outputs
+        if: github.event.inputs.action == 'apply'
         run: |
           cd terraform
-          terraform destroy -auto-approve
+          terraform output -raw instance_ip > instance_ip.txt
+          cat instance_ip.txt
 
       - name: Wait for EC2 instance
         if: github.event.inputs.action == 'apply'
         run: |
-          echo "Fetching the instance IP address..."
-          IP_ADDRESS=$(terraform output -raw instance_ip || echo "")
+          IP_ADDRESS=$(cat terraform/instance_ip.txt || echo "")
           if [ -z "$IP_ADDRESS" ]; then
             echo "Error: Instance IP address not found. Ensure the instance is created and outputs are defined."
             exit 1
@@ -68,7 +68,7 @@ jobs:
       - name: Install Dependencies and Set Up Medusa
         if: github.event.inputs.action == 'apply'
         run: |
-          IP_ADDRESS=$(terraform output -raw instance_ip || echo "")
+          IP_ADDRESS=$(cat terraform/instance_ip.txt || echo "")
           if [ -z "$IP_ADDRESS" ]; then
             echo "Error: Instance IP address not found. Aborting installation."
             exit 1
