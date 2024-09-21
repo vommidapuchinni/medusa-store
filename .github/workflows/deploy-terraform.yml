@@ -95,10 +95,6 @@ jobs:
             # Change directory to the cloned repo
             cd ./medusa-store
 
-            # Set up .env file
-            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
-            echo "REDIS_URL=redis://localhost:6379" >> .env
-
             # Install Medusa dependencies
             sudo npm install -g @medusajs/medusa-cli
             npm install
