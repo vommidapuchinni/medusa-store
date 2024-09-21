@@ -46,24 +46,15 @@ jobs:
           cd terraform
           terraform apply -auto-approve tfplan
 
-      - name: Wait for EC2 instance
+      - name: Install Dependencies and Set Up Medusa
         if: github.event.inputs.action == 'apply'
         run: |
           echo "Waiting for EC2 instance to be ready..."
           sleep 30  # Give some time for the instance to initialize
+          
+          # Fetch the instance IP from the terraform state
           IP_ADDRESS=$(terraform output -raw instance_ip)
-          if [ -z "$IP_ADDRESS" ]; then
-            echo "Error: Instance IP address not found. Aborting."
-            exit 1
-          fi
-          echo "Waiting for EC2 instance to be ready at $IP_ADDRESS"
-          while ! nc -zv $IP_ADDRESS 22; do sleep 10; done
-          echo "EC2 instance is now ready"
 
-      - name: Install Dependencies and Set Up Medusa
-        if: github.event.inputs.action == 'apply'
-        run: |
-          IP_ADDRESS=$(terraform output -raw instance_ip)
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@$IP_ADDRESS << 'EOF'
