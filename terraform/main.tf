@@ -95,25 +95,51 @@ resource "aws_instance" "medusa_ec2" {
   key_name      = "medusagit"              # Your key name
   subnet_id     = aws_subnet.medusa_subnet.id
 
-  # User data to install Node.js, Medusa, and other required tools
+  # User data to set up the environment
   user_data = <<-EOF
               #!/bin/bash
-              sudo apt-get update -y
-              sudo apt-get install -y build-essential curl
+              sudo apt-get update -y && sudo apt-get upgrade -y
+              
+              # Install Node.js and npm
+              sudo apt install -y nodejs npm
 
-              # Install Node.js
-              sudo apt-get install -y nodejs npm
+              # Install PostgreSQL
+              sudo apt install -y postgresql postgresql-contrib
+              sudo systemctl start postgresql
+              sudo systemctl enable postgresql
 
-              # Clone Medusa Store
-              git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store
+              # Create PostgreSQL user and database
+              sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
+              sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+              sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
-              # Install Medusa Backend
-              cd /home/ubuntu/medusa-store
+              # Install Redis
+              sudo apt install -y redis-server
+              sudo systemctl enable redis-server
+              sudo systemctl start redis-server
+
+              # Clone the Medusa app repository if it doesn't exist
+              if [ ! -d "./medusa-store" ]; then
+                git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+              else
+                cd ./medusa-store && git pull
+              fi
+
+              # Change directory to the cloned repo
+              cd ./medusa-store
+
+              # Install Medusa dependencies
+              sudo npm install -g @medusajs/medusa-cli
               npm install
 
-              # Start Medusa Server
-              npm run build
-              npm run start
+              # Run database migrations
+              npx medusa migrations run
+
+              # Start the Medusa application in the background
+              nohup npm run start > medusa.log 2>&1 &
+
+              echo "Medusa deployment initiated."
+              EOF
 
   # Allow SSH access
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
