@@ -46,7 +46,6 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: |
           terraform apply -auto-approve tfplan
-          echo "EC2_HOST=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV  # Store the output in GITHUB_ENV
         working-directory: ./terraform
 
       - name: Terraform Destroy
@@ -63,7 +62,8 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -v ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e  # Exit immediately if a command exits with a non-zero status.
             sudo apt-get update -y
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
             sudo systemctl start postgresql
