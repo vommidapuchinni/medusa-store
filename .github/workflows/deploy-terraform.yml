@@ -79,9 +79,9 @@ jobs:
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
 
-            # Create PostgreSQL database and user
-            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
-            sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+            # Create PostgreSQL user and database if they don't exist
+            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'medusa_user') THEN CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB; END IF; END \$\$;"
+            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'medusa_db') THEN CREATE DATABASE medusa_db OWNER medusa_user; END IF; END \$\$;"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
             # Install Redis
@@ -89,8 +89,12 @@ jobs:
             sudo systemctl enable redis-server
             sudo systemctl start redis-server
 
-            # Clone the Medusa app repository
-            git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+            # Clone the Medusa app repository if it doesn't exist
+            if [ ! -d "./medusa-store" ]; then
+              git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+            else
+              cd ./medusa-store && git pull
+            fi
 
             # Change directory to the cloned repo
             cd ./medusa-store
