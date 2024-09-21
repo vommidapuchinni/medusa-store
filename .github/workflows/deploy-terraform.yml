@@ -52,8 +52,8 @@ jobs:
         if: github.event.inputs.action == 'apply'
         id: instance_ip
         run: |
-          INSTANCE_IP=$(terraform output instance_ip)
-          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+          INSTANCE_IP=$(terraform output -raw instance_ip)
+          echo "INSTANCE_IP=${INSTANCE_IP}" >> $GITHUB_ENV
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
