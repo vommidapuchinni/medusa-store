@@ -48,6 +48,8 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: | 
           terraform apply -auto-approve tfplan
+          INSTANCE_IP=$(terraform output -raw instance_ip)
+          echo "Instance IP: $INSTANCE_IP"
         working-directory: ./terraform
 
       - name: Terraform Destroy
@@ -66,7 +68,8 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
+          INSTANCE_IP=$(terraform output -raw instance_ip)
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 ubuntu@$INSTANCE_IP << 'EOF'
             # Update and install necessary packages
             sudo apt-get update -y
             sudo apt-get upgrade -y
