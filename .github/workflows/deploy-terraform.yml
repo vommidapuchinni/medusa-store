@@ -25,7 +25,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1  # Set to US East (N. Virginia)
+          aws-region: us-east-1  # Adjusted to your specified region
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
@@ -50,6 +50,7 @@ jobs:
         run: | 
           terraform apply -auto-approve tfplan
           echo "EC2_HOST=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
+          echo "Successfully set EC2_HOST to $(terraform output -raw ec2_public_ip)"  # Debug output
         working-directory: ./terraform
 
       - name: Terraform Destroy
@@ -103,11 +104,10 @@ jobs:
 
             cd ./medusa-store
 
-            # Set up .env file if not already present
-            if [ ! -f .env ]; then
-              echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
-              echo "REDIS_URL=redis://localhost:6379" >> .env
-            fi
+            # Set up .env file
+            touch .env
+            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
+            echo "REDIS_URL=redis://localhost:6379" >> .env
 
             # Install Medusa dependencies
             sudo npm install -g @medusajs/medusa-cli
@@ -117,7 +117,7 @@ jobs:
             # Run database migrations
             npx medusa migrations run
 
-            # Create Medusa admin user with specified credentials
+            # Create Medusa admin user
             npx medusa user -e medusaadmin@gmail.com -p chinni
 
             # Check for process using port 9000 and kill it if necessary
@@ -126,7 +126,7 @@ jobs:
               lsof -ti:9000 | xargs kill -9
             fi
 
-            # Start the Medusa application in the background
+            # Start the Medusa application in the background with a timeout of 2 minutes
             nohup sudo npm run start &> medusa.log &
 
             echo "Medusa deployment initiated."
