@@ -62,18 +62,17 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Update and Install Dependencies
+      - name: Deploy Medusa on EC2
         if: github.event.inputs.action == 'apply'
         run: |
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
             set -e  # Exit on errors
 
-            # Update and install necessary packages
+            # Update the system
             sudo apt-get update -y && sudo apt-get upgrade -y
             
-            # Install Node.js 18.x
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt install -y nodejs
+            # Install Node.js and npm
+            sudo apt install -y nodejs npm
             
             # Install PostgreSQL
             sudo apt install -y postgresql postgresql-contrib
@@ -93,11 +92,8 @@ jobs:
             # Clone the Medusa app repository
             git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store || cd ./medusa-store && git pull
 
+            # Change directory to the cloned repo
             cd ./medusa-store
-
-            # Set up .env file
-            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
-            echo "REDIS_URL=redis://localhost:6379" >> .env
 
             # Install Medusa dependencies
             npm install
@@ -105,20 +101,12 @@ jobs:
             # Run database migrations
             npx medusa migrations run
 
-            # Create Medusa admin user if it doesn't exist
-            npx medusa user --create -e medusaadmin@gmail.com -p chinni || echo "Admin user already exists."
-
-            # Start the Medusa application in the background
-            NODE_OPTIONS="--max_old_space_size=4096" nohup npm run start &> medusa.log &
-            echo "Medusa deployment initiated."
-          EOF
-
-      - name: Clean up SSH
-        if: github.event.inputs.action == 'destroy'
-        run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
-            sudo systemctl stop postgresql
-            sudo systemctl stop redis-server
-            sudo rm -rf /home/ubuntu/medusa-store
-            echo "Medusa store removed from the server."
+            # Clean, build the application
+            npm run clean
+            npm run build
+            
+            # Start the application in the background and log output
+            nohup npm run start > medusa.log 2>&1 &
+            echo "Medusa application started. Logs can be found in medusa.log"
+            exit
           EOF
