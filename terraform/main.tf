@@ -2,6 +2,24 @@ provider "aws" {
   region = "us-east-1" # Modify to your desired region
 }
 
+# Create an S3 bucket for storing Terraform state
+resource "aws_s3_bucket" "terraform_state" {
+  bucket = "terraform-statefile-storing" # Your specified bucket name
+  acl    = "private"
+
+  tags = {
+    Name = "terraform-state-bucket"
+  }
+}
+
+terraform {
+  backend "s3" {
+    bucket = aws_s3_bucket.terraform_state.bucket
+    key    = "terraform/state" # Path within the bucket
+    region = "us-east-1"       # Your AWS region
+  }
+}
+
 # Create a VPC
 resource "aws_vpc" "medusa_vpc" {
   cidr_block = "10.0.0.0/16"
