@@ -52,40 +52,53 @@ jobs:
           cd terraform
           terraform destroy -auto-approve
 
-      # Add the commands that were previously in user_data for EC2
-      - name: Install Dependencies and Set Up Medusa
+      # Wait for the EC2 instance to be ready (using public IP output)
+      - name: Wait for EC2 instance
         if: github.event.inputs.action == 'apply'
         run: |
-          # Update and install Node.js, npm, PostgreSQL, and Redis
-          sudo apt-get update -y && sudo apt-get upgrade -y
-          sudo apt install -y nodejs npm postgresql postgresql-contrib redis-server
+          IP_ADDRESS=$(terraform output -raw instance_ip)
+          echo "Waiting for EC2 instance to be ready at $IP_ADDRESS"
+          while ! nc -zv $IP_ADDRESS 22; do sleep 10; done
+          echo "EC2 instance is now ready"
 
-          # Start and enable PostgreSQL and Redis services
-          sudo systemctl start postgresql && sudo systemctl enable postgresql
-          sudo systemctl start redis-server && sudo systemctl enable redis-server
+      # SSH into EC2 instance and deploy Medusa
+      - name: Deploy Medusa
+        if: github.event.inputs.action == 'apply'
+        run: |
+          IP_ADDRESS=$(terraform output -raw instance_ip)
+          ssh -o StrictHostKeyChecking=no -i /path/to/your/private/key.pem ubuntu@$IP_ADDRESS << 'EOF'
+            # Update and install Node.js, npm, PostgreSQL, and Redis
+            sudo apt-get update -y && sudo apt-get upgrade -y
+            sudo apt install -y nodejs npm postgresql postgresql-contrib redis-server
 
-          # Create PostgreSQL user and database
-          sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
-          sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-          sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
+            # Start PostgreSQL and Redis services
+            sudo systemctl start postgresql
+            sudo systemctl enable postgresql
+            sudo systemctl start redis-server
+            sudo systemctl enable redis-server
 
-          # Clone Medusa repository and install dependencies
-          if [ ! -d "./medusa-store" ]; then
-            git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
-          else
-            cd ./medusa-store && git pull
-          fi
+            # Create PostgreSQL user and database
+            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
+            sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
-          cd ./medusa-store
+            # Clone Medusa repository and install dependencies
+            if [ ! -d "./medusa-store" ]; then
+              git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+            else
+              cd ./medusa-store && git pull
+            fi
 
-          # Install Medusa CLI and dependencies
-          sudo npm install -g @medusajs/medusa-cli
-          npm install
+            cd ./medusa-store
 
-          # Run database migrations
-          npx medusa migrations run
+            # Install Medusa CLI and dependencies
+            sudo npm install -g @medusajs/medusa-cli
+            npm install
 
-          # Start Medusa in the background
-          nohup npm run start > medusa.log 2>&1 &
-          echo "Medusa deployment initiated."
+            # Run database migrations
+            npx medusa migrations run
 
+            # Start Medusa in the background
+            nohup npm run start > medusa.log 2>&1 &
+            echo "Medusa deployment initiated."
+          EOF
