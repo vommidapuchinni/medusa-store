@@ -1,4 +1,4 @@
-name: Terraform Workflow
+name: Deploy or Destroy Medusa
 
 on:
   workflow_dispatch:
@@ -19,70 +19,77 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          repository: 'vommidapuchinni/medusa-store'
 
-      - name: Set up AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Initialize Terraform
-        run: |
-          cd terraform
-          terraform init
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
 
       - name: Terraform Plan
-        if: github.event.inputs.action == 'apply'
-        run: |
-          cd terraform
-          terraform plan -out=tfplan
+        run: terraform plan -out=tfplan
+        working-directory: ./terraform
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
-        run: |
-          cd terraform
-          terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
 
-      - name: Install Dependencies and Set Up Medusa
+      - name: Store EC2 Instance IP
+        if: github.event.inputs.action == 'apply'
+        id: instance_ip
+        run: |
+          echo "INSTANCE_IP=$(terraform output -json instance_ip | jq -r .value)" >> $GITHUB_ENV
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve
+        working-directory: ./terraform
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Wait for EC2 Instance
         if: github.event.inputs.action == 'apply'
         run: |
           echo "Waiting for EC2 instance to be ready..."
-          sleep 30  # Give some time for the instance to initialize
-          
-          # Fetch the instance IP from the terraform state
-          IP_ADDRESS=$(terraform output -raw instance_ip)
+          sleep 30  # Wait for the instance to initialize
 
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@$IP_ADDRESS << 'EOF'
-            # Update and install Node.js, npm, PostgreSQL, and Redis
-            sudo apt-get update -y && sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
-
-            # Start PostgreSQL and Redis services
+      - name: Update and Install Dependencies
+        if: github.event.inputs.action == 'apply'
+        run: |
+          ssh -o StrictHostKeyChecking=no -v ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
+            set -e  # Exit if any command fails
+            sudo apt-get update -y
+            sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
-            sudo systemctl start redis-server
-            sudo systemctl enable redis-server
 
             # Create PostgreSQL user and database
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
-
-            # Clone and set up Medusa
-            if [ ! -d "./medusa-store" ]; then
-              git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
-            else
-              cd ./medusa-store && git pull
-            fi
-
-            cd ./medusa-store
-            sudo npm install -g @medusajs/medusa-cli
+            
+            # Clone Medusa repository and set it up
+            git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
+            cd ~/medusa-store
+            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
+            echo "REDIS_URL=redis://localhost:6379" >> .env
+            npm install -g @medusajs/medusa-cli
             npm install
             npx medusa migrations run
-            nohup npm run start > medusa.log 2>&1 &
+            npx medusa user -e medusaadmin@gmail.com -p chinni
+            nohup npm run start &> medusa.log &
             echo "Medusa deployment initiated."
           EOF
