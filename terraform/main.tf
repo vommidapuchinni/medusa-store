@@ -12,11 +12,12 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 }
 
+# Backend configuration
 terraform {
   backend "s3" {
-    bucket = aws_s3_bucket.terraform_state.bucket
-    key    = "terraform/state" # Path within the bucket
-    region = "us-east-1"       # Your AWS region
+    bucket = "terraform-statefile-storing"  # Directly set the bucket name
+    key    = "terraform/state"               # Path within the bucket
+    region = "us-east-1"                     # Your AWS region
   }
 }
 
