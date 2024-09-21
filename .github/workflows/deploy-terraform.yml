@@ -52,7 +52,6 @@ jobs:
           cd terraform
           terraform destroy -auto-approve
 
-      # Wait for the EC2 instance to be ready (using public IP output)
       - name: Wait for EC2 instance
         if: github.event.inputs.action == 'apply'
         run: |
@@ -61,15 +60,15 @@ jobs:
           while ! nc -zv $IP_ADDRESS 22; do sleep 10; done
           echo "EC2 instance is now ready"
 
-      # SSH into EC2 instance and deploy Medusa
-      - name: Deploy Medusa
+      - name: Install Dependencies and Set Up Medusa
         if: github.event.inputs.action == 'apply'
         run: |
           IP_ADDRESS=$(terraform output -raw instance_ip)
-          ssh -o StrictHostKeyChecking=no -i /path/to/your/private/key.pem ubuntu@$IP_ADDRESS << 'EOF'
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@$IP_ADDRESS << 'EOF'
             # Update and install Node.js, npm, PostgreSQL, and Redis
-            sudo apt-get update -y && sudo apt-get upgrade -y
-            sudo apt install -y nodejs npm postgresql postgresql-contrib redis-server
+            sudo apt-get update -y && sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
 
             # Start PostgreSQL and Redis services
             sudo systemctl start postgresql
@@ -82,7 +81,7 @@ jobs:
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
-            # Clone Medusa repository and install dependencies
+            # Clone and set up Medusa
             if [ ! -d "./medusa-store" ]; then
               git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
             else
@@ -90,15 +89,9 @@ jobs:
             fi
 
             cd ./medusa-store
-
-            # Install Medusa CLI and dependencies
             sudo npm install -g @medusajs/medusa-cli
             npm install
-
-            # Run database migrations
             npx medusa migrations run
-
-            # Start Medusa in the background
             nohup npm run start > medusa.log 2>&1 &
             echo "Medusa deployment initiated."
           EOF
