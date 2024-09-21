@@ -25,7 +25,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: us-east-1  # Adjust region as needed
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
@@ -38,7 +38,6 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Plan
-        id: terraform-plan
         run: terraform plan -out=tfplan
         working-directory: ./terraform
         env:
@@ -47,11 +46,11 @@ jobs:
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
-        run: |
+        run: | 
           terraform apply -auto-approve tfplan
-          echo "INSTANCE_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV
+          INSTANCE_IP=$(terraform output -raw instance_ip)
+          echo "Instance IP: $INSTANCE_IP"
         working-directory: ./terraform
-
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
@@ -69,28 +68,52 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
+          INSTANCE_IP=$(terraform output -raw instance_ip)
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 ubuntu@$INSTANCE_IP << 'EOF'
+            # Update and install necessary packages
             sudo apt-get update -y
-            sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
+            sudo apt-get upgrade -y
+            
+            # Install Node.js 18.x
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt install -y nodejs
+            
+            # Install PostgreSQL
+            sudo apt install -y postgresql postgresql-contrib
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
-            
+
+            # Create PostgreSQL database and user
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
-            if [ -d "./medusa-store" ]; then
-              sudo rm -rf ./medusa-store
-            fi
+            # Install Redis
+            sudo apt install -y redis-server
+            sudo systemctl enable redis-server
+            sudo systemctl start redis-server
 
-            git clone https://github.com/vommidapuchinni/medusa-store.git
-            cd medusa-store
-            
+            # Clone the Medusa app repository
+            git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+
+            cd ./medusa-store
+
+            # Set up .env file
             echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
             echo "REDIS_URL=redis://localhost:6379" >> .env
-            
-            npm install -g @medusajs/medusa-cli
+
+            # Install Medusa dependencies
+            sudo npm install -g @medusajs/medusa-cli
             npm install
+
+            # Run database migrations
             npx medusa migrations run
+
+            # Create Medusa admin user
             npx medusa user -e medusaadmin@gmail.com -p chinni
+
+            # Start the Medusa application in the background
             nohup npm run start &> medusa.log &
+
+            echo "Medusa deployment initiated."
           EOF
