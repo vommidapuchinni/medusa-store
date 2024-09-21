@@ -5,7 +5,7 @@ provider "aws" {
 # Backend configuration using the existing S3 bucket
 terraform {
   backend "s3" {
-    bucket = "terraform-statefile-storing"  # Your existing bucket name
+    bucket = "terraform-statefile-medusa"  # Your existing bucket name
     key    = "terraform/state"               # Path within the bucket
     region = "us-east-1"                     # Your AWS region
   }
