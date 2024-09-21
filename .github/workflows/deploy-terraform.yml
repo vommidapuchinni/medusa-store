@@ -54,7 +54,7 @@ jobs:
         if: github.event.inputs.action == 'apply'
         id: instance_ip
         run: |
-          instance_ip=$(terraform output -raw instance_ip 2>/dev/null | tr -d '\n' || echo "No IP found")
+          instance_ip=$(terraform output -raw instance_ip 2>/dev/null || echo "No IP found")
           if [ -n "$instance_ip" ]; then
             echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
           else
