@@ -114,3 +114,10 @@ jobs:
 
             echo "Medusa deployment initiated."
           EOF
+
+        # Additional troubleshooting information
+        env:
+          INSTANCE_IP: ${{ secrets.INSTANCE_IP }}
+          SSH_AUTH_SOCK: /tmp/ssh-XXXXXXAuSn1f/agent.1928
+          SSH_AGENT_PID: 1929
+
