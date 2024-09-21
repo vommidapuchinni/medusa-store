@@ -67,11 +67,12 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: |
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
-            echo "Connecting to EC2 instance..."
-
-            # Check if SSH is working
-            whoami
-
+            echo "Attempting to connect to EC2 instance..."
+            if ! whoami; then
+              echo "Failed to connect to the EC2 instance."
+              exit 1
+            fi
+            
             # Update and install necessary packages
             sudo apt-get update -y
             sudo apt-get upgrade -y
