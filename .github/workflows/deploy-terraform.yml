@@ -62,7 +62,9 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
+          echo "Connecting to EC2 instance at ${{ env.EC2_HOST }}"
           ssh -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_HOST }} << 'EOF'
+            set -e  # Exit immediately if a command exits with a non-zero status
             sudo apt-get update -y
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
             sudo systemctl start postgresql
