@@ -46,8 +46,7 @@ jobs:
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
-        run: | 
-          terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
 
       - name: Terraform Destroy
@@ -67,9 +66,10 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: |
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
+            set -e  # Exit on errors
+
             # Update and install necessary packages
-            sudo apt-get update -y
-            sudo apt-get upgrade -y
+            sudo apt-get update -y && sudo apt-get upgrade -y
             
             # Install Node.js 18.x
             curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -80,9 +80,9 @@ jobs:
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
 
-            # Create PostgreSQL database and user
-            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
-            sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
+            # Create PostgreSQL database and user if they don't exist
+            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'medusa_user') THEN CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB; END IF; END \$\$;"
+            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'medusa_db') THEN CREATE DATABASE medusa_db OWNER medusa_user; END IF; END \$\$;"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
             # Install Redis
@@ -91,7 +91,7 @@ jobs:
             sudo systemctl start redis-server
 
             # Clone the Medusa app repository
-            git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
+            git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store || cd ./medusa-store && git pull
 
             cd ./medusa-store
 
@@ -100,17 +100,25 @@ jobs:
             echo "REDIS_URL=redis://localhost:6379" >> .env
 
             # Install Medusa dependencies
-            sudo npm install -g @medusajs/medusa-cli
             npm install
 
             # Run database migrations
             npx medusa migrations run
 
-            # Create Medusa admin user
-            npx medusa user -e medusaadmin@gmail.com -p chinni
+            # Create Medusa admin user if it doesn't exist
+            npx medusa user --create -e medusaadmin@gmail.com -p chinni || echo "Admin user already exists."
 
             # Start the Medusa application in the background
-            nohup npm run start &> medusa.log &
-
+            NODE_OPTIONS="--max_old_space_size=4096" nohup npm run start &> medusa.log &
             echo "Medusa deployment initiated."
+          EOF
+
+      - name: Clean up SSH
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
+            sudo systemctl stop postgresql
+            sudo systemctl stop redis-server
+            sudo rm -rf /home/ubuntu/medusa-store
+            echo "Medusa store removed from the server."
           EOF
