@@ -52,6 +52,7 @@ jobs:
           echo "INSTANCE_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV
         working-directory: ./terraform
 
+
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve
