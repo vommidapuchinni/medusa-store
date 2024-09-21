@@ -67,6 +67,11 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: |
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=120 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
+            echo "Connecting to EC2 instance..."
+
+            # Check if SSH is working
+            whoami
+
             # Update and install necessary packages
             sudo apt-get update -y
             sudo apt-get upgrade -y
@@ -114,10 +119,3 @@ jobs:
 
             echo "Medusa deployment initiated."
           EOF
-
-        # Additional troubleshooting information
-        env:
-          INSTANCE_IP: ${{ secrets.INSTANCE_IP }}
-          SSH_AUTH_SOCK: /tmp/ssh-XXXXXXAuSn1f/agent.1928
-          SSH_AGENT_PID: 1929
-
