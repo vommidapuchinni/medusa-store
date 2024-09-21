@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-1" # Modify to your desired region
+  region = "us-east-1"  # Modify to your desired region
 }
 
 # Backend configuration using the existing S3 bucket
@@ -25,7 +25,7 @@ resource "aws_vpc" "medusa_vpc" {
 resource "aws_subnet" "medusa_subnet" {
   vpc_id            = aws_vpc.medusa_vpc.id
   cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a" # Modify as needed
+  availability_zone = "us-east-1a"  # Modify as needed
   map_public_ip_on_launch = true
   tags = {
     Name = "medusa-subnet"
@@ -64,13 +64,13 @@ resource "aws_route_table_association" "medusa_route_table_association" {
 resource "aws_security_group" "allow_ssh" {
   name        = "allow_ssh_and_medusa"
   description = "Allow SSH and Medusa HTTP access"
-  vpc_id     = aws_vpc.medusa_vpc.id
+  vpc_id      = aws_vpc.medusa_vpc.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow SSH from anywhere (consider restricting it)
+    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting this to specific IPs
   }
 
   ingress {
@@ -98,6 +98,7 @@ resource "aws_instance" "medusa_ec2" {
   # User data to set up the environment
   user_data = <<-EOF
               #!/bin/bash
+              set -e  # Exit on error
               sudo apt-get update -y && sudo apt-get upgrade -y
               
               # Install Node.js and npm
