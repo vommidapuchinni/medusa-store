@@ -30,10 +30,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
-          # Check if terraform is a directory, if so remove it
-          if [ -d "/usr/local/bin/terraform" ]; then sudo rm -rf /usr/local/bin/terraform; fi
-          # Check if terraform is a file, if so remove it
-          if [ -f "/usr/local/bin/terraform" ]; then sudo rm -f /usr/local/bin/terraform; fi
+          # Remove any existing terraform directory or file
+          sudo rm -rf /usr/local/bin/terraform
           # Download and unzip Terraform
           wget https://releases.hashicorp.com/terraform/1.3.6/terraform_1.3.6_linux_amd64.zip
           unzip -o terraform_1.3.6_linux_amd64.zip
