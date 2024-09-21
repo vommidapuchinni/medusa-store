@@ -36,23 +36,23 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./terraform  # Updated path to just 'terraform'
+        working-directory: ./terraform
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
-        working-directory: ./terraform  # Updated path to just 'terraform'
+        working-directory: ./terraform
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
         run: |
           terraform apply -auto-approve tfplan
-          echo "EC2_HOST=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
-        working-directory: ./terraform  # Updated path to just 'terraform'
+          echo "EC2_HOST=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV  # Store the output in GITHUB_ENV
+        working-directory: ./terraform
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve
-        working-directory: ./terraform  # Updated path to just 'terraform'
+        working-directory: ./terraform
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.5.3
