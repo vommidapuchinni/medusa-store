@@ -48,7 +48,8 @@ jobs:
       - name: Store EC2 Instance IP
         if: github.event.inputs.action == 'apply'
         id: instance_ip
-        run: echo "INSTANCE_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV
+        run: |
+          echo "INSTANCE_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
@@ -75,7 +76,7 @@ jobs:
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
-  
+            
             # Create PostgreSQL user and database
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
