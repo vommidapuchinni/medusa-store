@@ -1,113 +1,56 @@
-name: Deploy or Destroy Medusa
+name: Deploy Medusa Application
 
 on:
-  workflow_dispatch:
-    inputs:
-      action:
-        description: 'Select the action to perform'
-        required: true
-        default: 'apply'
-        type: choice
-        options:
-          - apply
-          - destroy
+  push:
+    branches:
+      - master  # Changed from main to master
+
+  workflow_dispatch:  # Allows manual triggering of the destroy workflow
 
 jobs:
-  terraform:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1  # Adjust region as needed
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Setup Terraform
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.5.0
-          terraform_wrapper: false
+          terraform_version: 1.3.0
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./terraform
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: ./terraform
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        working-directory: ./terraform  # Specify the directory
 
       - name: Terraform Apply
-        if: github.event.inputs.action == 'apply'
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform
-
-      - name: Terraform Destroy
-        if: github.event.inputs.action == 'destroy'
-        run: terraform destroy -auto-approve
-        working-directory: ./terraform
+        run: terraform apply -auto-approve
+        working-directory: ./terraform  # Specify the directory
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.3
+  destroy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'  # Only runs on manual trigger
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
         with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+          terraform_version: 1.3.0
 
-      - name: Update and Install Dependencies
-        if: github.event.inputs.action == 'apply'
-        run: |
-          ssh -tt -o StrictHostKeyChecking=no -o ConnectTimeout=60 ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
-            set -e  # Exit on errors
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform  # Specify the directory
 
-            # Update the system
-            sudo apt-get update -y && sudo apt-get upgrade -y
-            
-            # Install Node.js and npm
-            sudo apt install -y nodejs npm
-            
-            # Install PostgreSQL
-            sudo apt install -y postgresql postgresql-contrib
-            sudo systemctl start postgresql
-            sudo systemctl enable postgresql
-
-            # Create PostgreSQL user and database if they don't exist
-            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'medusa_user') THEN CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB; END IF; END \$\$;"
-            sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'medusa_db') THEN CREATE DATABASE medusa_db OWNER medusa_user; END IF; END \$\$;"
-            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
-
-            # Install Redis
-            sudo apt install -y redis-server
-            sudo systemctl enable redis-server
-            sudo systemctl start redis-server
-
-            # Clone the Medusa app repository if it doesn't exist
-            if [ ! -d "./medusa-store" ]; then
-              git clone https://github.com/vommidapuchinni/medusa-store.git ./medusa-store
-            else
-              cd ./medusa-store && git pull
-            fi
-
-            # Change directory to the cloned repo
-            cd ./medusa-store
-
-            # Install Medusa dependencies
-            sudo npm install -g @medusajs/medusa-cli
-            npm install
-
-            # Run database migrations
-            npx medusa migrations run
-
-            # Start the Medusa application in the background
-            nohup npm run start > medusa.log 2>&1 &
-
-            echo "Medusa deployment initiated."
-          EOF
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: ./terraform  # Specify the directory
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
