@@ -36,9 +36,6 @@ jobs:
     # Step 4: Conditionally apply or destroy based on the input
     - name: Terraform Apply or Destroy
       id: terraform_apply
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
           terraform apply -auto-approve
@@ -47,14 +44,16 @@ jobs:
         fi
       working-directory: ./terraform
 
-    # Step 5: Install Medusa on EC2 (only for apply)
+    # Step 5: (Optional) Post deployment tasks for `apply` (Install Medusa, etc.)
     - name: Install Medusa on EC2 (only for apply)
       if: ${{ github.event.inputs.action == 'apply' }}
       env:
         EC2_PUBLIC_IP: ${{ steps.terraform_apply.outputs.instance_ip }}  # Use terraform output for instance IP
-        PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}  # Ensure this is set correctly
+        PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}  # SSH private key from GitHub secrets
       run: |
-        ssh -o StrictHostKeyChecking=no -i "$PRIVATE_KEY" ubuntu@"${EC2_PUBLIC_IP}" << 'EOF'
+        echo "$PRIVATE_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@"${EC2_PUBLIC_IP}" << 'EOF'
         sudo apt update -y
         sudo apt install -y nodejs npm postgresql postgresql-contrib redis git
 
@@ -88,3 +87,4 @@ jobs:
         nohup npm run start > medusa.log 2>&1 &
         echo "Medusa application started. Logs can be found in medusa.log"
         EOF
+        rm private_key.pem  # Clean up the private key file
