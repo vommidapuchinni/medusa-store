@@ -60,7 +60,7 @@ jobs:
       - name: Extract EC2 Instance IP from JSON
         if: github.event.inputs.action == 'apply'
         run: |
-          instance_ip=$(jq -r '.instance_ip.value' output.json 2> /dev/null)
+          instance_ip=$(jq -r '.instance_ip.value // empty' output.json)
           if [ -n "$instance_ip" ]; then
             echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
             echo "EC2 instance IP is: $instance_ip"
