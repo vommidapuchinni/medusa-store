@@ -64,8 +64,13 @@ jobs:
             exit 1
           fi
           
-          # Extract the instance IP from the valid JSON
+          # Extract the instance IP
           instance_ip=$(jq -r '.instance_ip.value' output.json)
+          if [ $? -ne 0 ]; then
+            echo "Error extracting instance IP from JSON."
+            exit 1
+          fi
+          
           if [ -n "$instance_ip" ]; then
             echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
             echo "EC2 instance IP is: $instance_ip"
@@ -75,6 +80,7 @@ jobs:
           fi
         working-directory: ./terraform
         shell: bash
+
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
