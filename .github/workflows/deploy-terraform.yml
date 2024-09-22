@@ -28,11 +28,16 @@ jobs:
       with:
         terraform_version: 1.0.0
 
-    # Step 3: Initialize Terraform
+    # Step 3: Navigate to the terraform directory
+    - name: Change directory to terraform
+      run: cd terraform
+
+    # Step 4: Initialize Terraform in the terraform directory
     - name: Terraform Init
       run: terraform init
+      working-directory: ./terraform
 
-    # Step 4: Conditionally apply or destroy based on the input
+    # Step 5: Conditionally apply or destroy based on the input
     - name: Terraform Apply or Destroy
       run: |
         if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
@@ -40,8 +45,9 @@ jobs:
         elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
           terraform destroy -auto-approve
         fi
+      working-directory: ./terraform
 
-    # Step 5: (Optional) Post deployment tasks for `apply` (Install Medusa, etc.)
+    # Step 6: (Optional) Post deployment tasks for `apply` (Install Medusa, etc.)
     - name: Install Medusa on EC2 (only for apply)
       if: ${{ github.event.inputs.action == 'apply' }}
       env:
