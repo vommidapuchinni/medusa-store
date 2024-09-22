@@ -40,7 +40,8 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
             terraform apply -auto-approve
-            echo "INSTANCE_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV  # Set IP in environment
+            INSTANCE_IP=$(terraform output -raw instance_ip)
+            echo "INSTANCE_IP=${INSTANCE_IP}" >> $GITHUB_ENV  # Correct way to set IP
           elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
             echo "Infrastructure destroyed."
