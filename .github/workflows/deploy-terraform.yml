@@ -1,4 +1,4 @@
-name: Deploy Medusa automatically
+name: Deploy Medusa
 
 on:
   workflow_dispatch:
@@ -13,22 +13,18 @@ on:
           - destroy
 
 jobs:
-  terraform:
-    name: Terraform Apply or Destroy
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      # Step 2: Set up Terraform
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.0.0
 
-      # Step 3: Initialize Terraform in the terraform directory
       - name: Terraform Init
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  
@@ -36,9 +32,8 @@ jobs:
         run: terraform init
         working-directory: ./terraform
 
-      # Step 4: Conditionally apply or destroy based on the input
       - name: Terraform Apply or Destroy
-        id: terraform_apply
+        id: terraform_action
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  
@@ -48,43 +43,26 @@ jobs:
             echo "::set-output name=instance_ip::$(terraform output -raw instance_ip)"  # Capture the public IP
           elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
+            echo "Infrastructure destroyed."
           fi
         working-directory: ./terraform
 
-      # Step 5: SSH into EC2 and clone the repository
-      - name: Clone repository on EC2
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
-          USER: ubuntu                                 
-        run: |
-          echo "$PRIVATE_KEY" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
-            set -e
-            # Install git if not already installed
-            sudo apt update -y
-            sudo apt install -y git
+      - name: Set Instance IP
+        id: set_instance_ip
+        run: echo "INSTANCE_IP=${{ steps.terraform_action.outputs.instance_ip }}" >> $GITHUB_ENV
 
-            # Clone the Medusa store repository
-            git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store
-            cd /home/ubuntu/medusa-store
-          EOF
-
-      # Step 6: SSH into EC2 and install dependencies
       - name: SSH into EC2 and install dependencies
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
+          HOST: ${{ steps.set_instance_ip.outputs.INSTANCE_IP }}              
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
-            set -e
-            # Update and install required packages
+            # Update package list and install required packages
             sudo apt update -y
-            sudo apt install -y nodejs npm postgresql postgresql-contrib redis
+            sudo apt install -y git nodejs npm postgresql postgresql-contrib redis
 
             # Start PostgreSQL and Redis services
             sudo systemctl start postgresql
@@ -94,21 +72,22 @@ jobs:
 
             # Set up PostgreSQL for Medusa
             sudo -u postgres psql -c "CREATE DATABASE medusa_db;"
-            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD '${{ secrets.DB_PASSWORD }}';"
+            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni';"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
           EOF
 
-      # Step 7: SSH into EC2, run migrations, and start the application
-      - name: SSH into EC2, run migrations, and start the application
+      - name: SSH into EC2, clone repo, and start the application
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
+          HOST: ${{ steps.set_instance_ip.outputs.INSTANCE_IP }}              
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
-            set -e
+            # Clone the Medusa store repository
+            git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store
+
             cd /home/ubuntu/medusa-store/
             npm install
             npm run clean
@@ -120,4 +99,8 @@ jobs:
             # Start the application in the background and log output
             nohup npm run start > medusa.log 2>&1 &
             echo "Medusa application started. Logs can be found in medusa.log"
+            exit
           EOF
+
+      - name: Clean up private key
+        run: rm private_key.pem
