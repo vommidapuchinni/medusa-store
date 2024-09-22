@@ -115,7 +115,7 @@ jobs:
             cd ~/medusa-store
             echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
             echo "REDIS_URL=redis://localhost:6379" >> .env
-            npm install -g @medusajs/medusa-cli
+            sudo npm install -g @medusajs/medusa-cli  # Use sudo here
             npm install
             npx medusa migrations run
             nohup npm run start &> medusa.log &
