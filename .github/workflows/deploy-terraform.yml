@@ -45,18 +45,27 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
 
-      - name: Get Terraform output
-        run: terraform output -json > output.json 2> /dev/null
+      - name: Get Terraform Output (JSON)
+        if: github.event.inputs.action == 'apply'
+        run: terraform output -json > output.json
         working-directory: ./terraform
 
-      - name: Display output.json content
+      - name: Display output.json content for debugging
+        if: github.event.inputs.action == 'apply'
         run: cat output.json
         working-directory: ./terraform
-        shell: bash
 
-      - name: Set Instance IP
+      - name: Verify JSON and Extract EC2 Instance IP
+        if: github.event.inputs.action == 'apply'
         run: |
-          instance_ip=$(jq -r '.instance_ip.value' output.json)  # Adjust based on your JSON structure
+          # Check if the JSON output is valid
+          if ! jq empty output.json; then
+            echo "Invalid JSON format in output.json"
+            exit 1
+          fi
+          
+          # Extract the instance IP from the valid JSON
+          instance_ip=$(jq -r '.instance_ip.value' output.json)
           if [ -n "$instance_ip" ]; then
             echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
             echo "EC2 instance IP is: $instance_ip"
