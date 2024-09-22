@@ -1,83 +1,30 @@
 provider "aws" {
-  region = "us-east-1"  # Modify to your desired region
+  region = "us-east-1"
 }
 
-# Backend configuration using the existing S3 bucket
-terraform {
-  backend "s3" {
-    bucket = "medusa-statefile"  # Your existing bucket name
-    key    = "terraform/state"               # Path within the bucket
-    region = "us-east-1"                     # Your AWS region
-  }
-}
-
-# Create a VPC
-resource "aws_vpc" "medusa_vpc" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
-  enable_dns_hostnames = true
-  tags = {
-    Name = "medusa-vpc"
-  }
-}
-
-# Create a subnet
-resource "aws_subnet" "medusa_subnet" {
-  vpc_id            = aws_vpc.medusa_vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"  # Modify as needed
-  map_public_ip_on_launch = true
-  tags = {
-    Name = "medusa-subnet"
-  }
-}
-
-# Create an internet gateway
-resource "aws_internet_gateway" "medusa_ig" {
-  vpc_id = aws_vpc.medusa_vpc.id
-  tags = {
-    Name = "medusa-ig"
-  }
-}
-
-# Create a route table
-resource "aws_route_table" "medusa_route_table" {
-  vpc_id = aws_vpc.medusa_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.medusa_ig.id
-  }
-
-  tags = {
-    Name = "medusa-route-table"
-  }
-}
-
-# Associate the route table with the subnet
-resource "aws_route_table_association" "medusa_route_table_association" {
-  subnet_id      = aws_subnet.medusa_subnet.id
-  route_table_id = aws_route_table.medusa_route_table.id
-}
-
-# Security group to allow SSH access and port 9000 for Medusa
-resource "aws_security_group" "allow_ssh" {
-  name        = "allow_ssh_and_medusa"
-  description = "Allow SSH and Medusa HTTP access"
-  vpc_id      = aws_vpc.medusa_vpc.id
+resource "aws_security_group" "allow_ssh_http" {
+  name        = "allow_ssh_http"
+  description = "Allow SSH and HTTP traffic"
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting this to specific IPs
+    cidr_blocks = ["0.0.0.0/0"] # Adjust to limit SSH access if needed
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
     from_port   = 9000
     to_port     = 9000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow HTTP traffic to Medusa
+    cidr_blocks = ["0.0.0.0/0"] # Allow access to Medusa on port 9000
   }
 
   egress {
@@ -88,22 +35,22 @@ resource "aws_security_group" "allow_ssh" {
   }
 }
 
-# Create the EC2 instance
-resource "aws_instance" "medusa_ec2" {
-  ami           = "ami-0e86e20dae9224db8"  # Ubuntu AMI
-  instance_type = "t2.micro"               # Instance type
-  key_name      = "medusagit"              # Your key name
-  subnet_id     = aws_subnet.medusa_subnet.id
-  # Allow SSH access
-  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+resource "aws_instance" "medusa" {
+  ami           = "ami-0e86e20dae9224db8" # Ubuntu AMI in us-east-1
+  instance_type = "t2.micro"
+  key_name      = var.key_name            # Pass key pair for SSH access
+
+  user_data = file("user_data.sh")
 
   tags = {
-    Name = "Medusa-EC2"
+    Name = "MedusaInstance"
   }
+
+  security_groups = [aws_security_group.allow_ssh_http.name]
 }
 
-# Output the public IP of the instance
-output "instance_ip" {
-  description = "The public IP of the EC2 instance"
-  value       = aws_instance.medusa_ec2.public_ip
+output "instance_public_ip" {
+  description = "Public IP of the EC2 instance"
+  value       = aws_instance.medusa.public_ip
 }
+

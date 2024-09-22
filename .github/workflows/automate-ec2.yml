@@ -1,0 +1,47 @@
+name: Deploy and Destroy Medusa EC2 Instance
+
+on:
+  # Trigger workflow manually
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Select Terraform action (apply or destroy)'
+        required: true
+        default: 'apply'
+        options:
+          - apply
+          - destroy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+
+      # Step 3: Configure AWS credentials using GitHub Secrets
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-east-1"
+
+      # Step 4: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform  # Adjust this path if necessary
+
+      # Step 5: Apply or Destroy Terraform configuration based on input
+      - name: Terraform Apply or Destroy
+        run: terraform ${{ github.event.inputs.action }} -auto-approve -var="key_name=${{ secrets.KEY_NAME }}"
+        working-directory: ./terraform  # Adjust this path if necessary
+
