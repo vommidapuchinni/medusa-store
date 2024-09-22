@@ -56,20 +56,6 @@ jobs:
         run: cat output.json
         working-directory: ./terraform
 
-      - name: Extract EC2 Instance IP from JSON
-        if: github.event.inputs.action == 'apply'
-        run: |
-          instance_ip=$(jq -r '.instance_ip.value // empty' output.json)
-          if [ -n "$instance_ip" ]; then
-            echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
-            echo "EC2 instance IP is: $instance_ip"
-          else
-            echo "No valid instance IP found."
-            exit 1
-          fi
-        working-directory: ./terraform
-        shell: bash
-
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve
@@ -89,7 +75,7 @@ jobs:
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
             set -e  # Exit if any command fails
             sudo apt-get update -y
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
@@ -99,7 +85,6 @@ jobs:
             # Create PostgreSQL user and database
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-            
             
             # Clone Medusa repository and set it up
             git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
