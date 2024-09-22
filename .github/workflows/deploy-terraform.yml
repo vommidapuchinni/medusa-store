@@ -1,4 +1,4 @@
-name: Deploy Medusa to EC2
+name: Deploy Medusa automatically
 
 on:
   workflow_dispatch:
