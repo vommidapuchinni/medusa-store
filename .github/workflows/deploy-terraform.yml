@@ -100,8 +100,6 @@ jobs:
             # Clone Medusa repository and set it up
             git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
             cd ~/medusa-store
-            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
-            echo "REDIS_URL=redis://localhost:6379" >> .env
             npm install -g @medusajs/medusa-cli
             npm install
             npx medusa migrations run
