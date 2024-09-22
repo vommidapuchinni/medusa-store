@@ -1,10 +1,10 @@
-name: Deploy or Destroy Medusa
+name: Deploy Medusa to EC2
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Select the action to perform'
+        description: 'Choose action: apply or destroy'
         required: true
         default: 'apply'
         type: choice
@@ -14,95 +14,72 @@ on:
 
 jobs:
   terraform:
+    name: Terraform Apply or Destroy
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    # Step 1: Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+    # Step 2: Set up Terraform
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.0.0
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
-        with:
-          terraform_version: 1.5.0
+    # Step 3: Initialize Terraform
+    - name: Terraform Init
+      run: terraform init
 
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./terraform
+    # Step 4: Conditionally apply or destroy based on the input
+    - name: Terraform Apply or Destroy
+      run: |
+        if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
+          terraform apply -auto-approve
+        elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
+          terraform destroy -auto-approve
+        fi
 
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: ./terraform
+    # Step 5: (Optional) Post deployment tasks for `apply` (Install Medusa, etc.)
+    - name: Install Medusa on EC2 (only for apply)
+      if: ${{ github.event.inputs.action == 'apply' }}
+      env:
+        EC2_PUBLIC_IP: ${{ steps.terraform.outputs.instance_ip }}  # Use terraform output for instance IP
+        PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}  # SSH private key from GitHub secrets
+      run: |
+        ssh -o StrictHostKeyChecking=no -i $PRIVATE_KEY ubuntu@${EC2_PUBLIC_IP} << 'EOF'
+        sudo apt update -y
+        sudo apt install -y nodejs npm postgresql postgresql-contrib redis git
 
-      - name: Terraform Apply
-        if: github.event.inputs.action == 'apply'
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform
+        # Start PostgreSQL and Redis services
+        sudo systemctl start postgresql
+        sudo systemctl enable postgresql
+        sudo systemctl start redis
+        sudo systemctl enable redis
 
-      - name: Get Terraform Output (JSON)
-        if: github.event.inputs.action == 'apply'
-        run: |
-          terraform output -json > output.json
-          echo "Output.json content:"
-          cat output.json  # Display the output for debugging
-        working-directory: ./terraform
+        # Set up PostgreSQL for Medusa
+        sudo -u postgres psql -c "CREATE DATABASE medusa_db;"
+        sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni';"
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
 
-      - name: Check Output.json Validity
-        if: github.event.inputs.action == 'apply'
-        run: |
-          if ! jq empty output.json; then
-            echo "Error: Invalid JSON format in output.json"
-            exit 1
-          fi
-        working-directory: ./terraform
+        # Clone the Medusa store repo and set up the application
+        git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-app
+        cd /home/ubuntu/medusa-app
 
-      - name: Extract EC2 Instance IP from JSON
-        if: github.event.inputs.action == 'apply'
-        run: |
-          instance_ip=$(jq -r '.instance_ip.value // empty' output.json)
-          echo "Extracted instance IP: $instance_ip"
-          if [ -z "$instance_ip" ]; then
-            echo "Error: No valid instance IP found."
-            exit 1
-          fi
-          echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
-        working-directory: ./terraform
+        # Use the .env file from the repo
+        cp .env.example .env
 
-      - name: Wait for EC2 Instance
-        if: github.event.inputs.action == 'apply'
-        run: |
-          echo "Waiting for EC2 instance to be ready..."
-          sleep 30  # Adjust based on instance startup time
+        # Clean up node_modules and install dependencies
+        rm -rf node_modules
+        npm install
 
-      - name: Update and Install Dependencies
-        if: github.event.inputs.action == 'apply'
-        run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
-            set -e
-            sudo apt-get update -y
-            sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
-            sudo systemctl start postgresql
-            sudo systemctl enable postgresql
+        # Clean and build the Medusa project
+        npm run clean
+        npm run build
 
-            # Create PostgreSQL user and database
-            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
-            sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
-            
-            # Clone Medusa repository and set it up
-            git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
-            cd ~/medusa-store
-            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
-            echo "REDIS_URL=redis://localhost:6379" >> .env
-            npm install -g @medusajs/medusa-cli
-            npm install
-            npx medusa migrations run
-            nohup npm run start &> medusa.log &
-            echo "Medusa deployment initiated."
-          EOF
+        # Start the application in the background and log output
+        nohup npm run start > medusa.log 2>&1 &
+        echo "Medusa application started. Logs can be found in medusa.log"
+        exit
+        EOF
