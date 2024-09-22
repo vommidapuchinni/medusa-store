@@ -30,6 +30,9 @@ jobs:
 
       # Step 3: Initialize Terraform in the terraform directory
       - name: Terraform Init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS Access Key
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS Secret Key
         run: terraform init
         working-directory: ./terraform
 
@@ -54,8 +57,6 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          echo "Attempting to SSH into: $EC2_PUBLIC_IP"
-          
           ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@"${EC2_PUBLIC_IP}" << 'EOF'
             sudo apt update -y
             sudo apt install -y nodejs npm postgresql postgresql-contrib redis git
