@@ -87,7 +87,8 @@ jobs:
             # Create PostgreSQL user and database
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
+            
             # Clone Medusa repository and set it up
             git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
             cd ~/medusa-store
