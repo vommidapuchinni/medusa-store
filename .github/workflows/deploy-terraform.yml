@@ -42,8 +42,10 @@ jobs:
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve tfplan || exit 1
         working-directory: ./terraform
+
 
       - name: Get Terraform Output (JSON)
         if: github.event.inputs.action == 'apply'
