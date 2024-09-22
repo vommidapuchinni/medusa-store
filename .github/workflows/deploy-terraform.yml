@@ -45,33 +45,37 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
             terraform apply -auto-approve
+            echo "Instance IP: $(terraform output -raw instance_ip)"  # Output the public IP for debugging
             echo "::set-output name=instance_ip::$(terraform output -raw instance_ip)"  # Capture the public IP
           elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
           fi
         working-directory: ./terraform
 
-      # Step 5: Copy Medusa application files to EC2
-      - name: Copy files to EC2
+      # Step 5: SSH into EC2 and clone the Medusa application repository
+      - name: SSH into EC2 and clone repository
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
+          INSTANCE_IP: ${{ steps.terraform_apply.outputs.instance_ip }}  # Use the captured IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          rsync -avz --exclude='node_modules' -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" ./path/to/your/medusa-app/ $USER@$HOST:/home/ubuntu/medusa-store/
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$INSTANCE_IP << 'EOF'
+            # Clone the Medusa store repository
+            git clone https://github.com/vommidapuchinni/medusa-store.git /home/ubuntu/medusa-store/
+          EOF
 
       # Step 6: SSH into EC2 and install dependencies, PostgreSQL, and Redis
       - name: SSH into EC2 and install dependencies
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
+          INSTANCE_IP: ${{ steps.terraform_apply.outputs.instance_ip }}  # Use the captured IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$INSTANCE_IP << 'EOF'
             # Update and install required packages
             sudo apt update -y
             sudo apt install -y nodejs npm postgresql postgresql-contrib redis git
@@ -92,12 +96,12 @@ jobs:
       - name: SSH into EC2, run migrations, and start the application
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ secrets.EC2_HOST }}              
+          INSTANCE_IP: ${{ steps.terraform_apply.outputs.instance_ip }}  # Use the captured IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$INSTANCE_IP << 'EOF'
             cd /home/ubuntu/medusa-store/
             npm install
             npm run clean
