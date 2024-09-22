@@ -42,41 +42,52 @@ jobs:
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
+
+      - name: Get Terraform Output (JSON)
+        if: github.event.inputs.action == 'apply'
+        run: terraform output -json > output.json
+        working-directory: ./terraform
+
+      - name: Display Output.json Content
+        if: github.event.inputs.action == 'apply'
+        run: cat output.json
+        working-directory: ./terraform
+
+      - name: Extract EC2 Instance IP from JSON
+        if: github.event.inputs.action == 'apply'
         run: |
-          terraform apply -auto-approve tfplan || exit 1
+          instance_ip=$(jq -r '.instance_ip.value // empty' output.json)
+          echo "Extracted instance IP: $instance_ip"
+          if [ -z "$instance_ip" ]; then
+            echo "Error: No valid instance IP found."
+            exit 1
+          fi
+          echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
         working-directory: ./terraform
-
-      - name: Terraform Destroy
-        if: github.event.inputs.action == 'destroy'
-        run: terraform destroy -auto-approve
-        working-directory: ./terraform
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+        shell: bash
 
       - name: Wait for EC2 Instance
         if: github.event.inputs.action == 'apply'
         run: |
           echo "Waiting for EC2 instance to be ready..."
-          sleep 30  # Wait for the instance to initialize
+          sleep 30  # Adjust based on instance startup time
 
       - name: Update and Install Dependencies
         if: github.event.inputs.action == 'apply'
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.INSTANCE_IP }} << 'EOF'
-            set -e  # Exit if any command fails
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} << 'EOF'
+            set -e
             sudo apt-get update -y
             sudo apt-get install -y nodejs npm postgresql postgresql-contrib redis-server
             sudo systemctl start postgresql
             sudo systemctl enable postgresql
-            
+
             # Create PostgreSQL user and database
             sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni' CREATEDB;"
             sudo -u postgres psql -c "CREATE DATABASE medusa_db OWNER medusa_user;"
-            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
-            
+
             # Clone Medusa repository and set it up
             git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
             cd ~/medusa-store
