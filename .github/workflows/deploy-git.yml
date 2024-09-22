@@ -1,4 +1,4 @@
-name: Deploy Medusa to EC2 (terraform) 
+name: Deploy Medusa to EC2 
 
 on:
   workflow_dispatch:
