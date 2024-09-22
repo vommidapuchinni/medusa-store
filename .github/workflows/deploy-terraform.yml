@@ -47,14 +47,16 @@ jobs:
 
       - name: Get Terraform Output (JSON)
         if: github.event.inputs.action == 'apply'
-        id: output_json
-        run: |
-          terraform output -json > output.json
+        run: terraform output -json > output.json
+        working-directory: ./terraform
+
+      - name: Display Output.json Content
+        if: github.event.inputs.action == 'apply'
+        run: cat output.json
         working-directory: ./terraform
 
       - name: Extract EC2 Instance IP from JSON
         if: github.event.inputs.action == 'apply'
-        id: extract_ip
         run: |
           instance_ip=$(jq -r '.instance_ip.value' output.json)
           if [ -n "$instance_ip" ]; then
@@ -100,10 +102,11 @@ jobs:
             # Clone Medusa repository and set it up
             git clone https://github.com/vommidapuchinni/medusa-store.git ~/medusa-store
             cd ~/medusa-store
+            echo "DATABASE_URL=postgres://medusa_user:chinni@localhost:5432/medusa_db" > .env
+            echo "REDIS_URL=redis://localhost:6379" >> .env
             npm install -g @medusajs/medusa-cli
             npm install
             npx medusa migrations run
-            npx medusa user -e medusaadmin@gmail.com -p chinni
             nohup npm run start &> medusa.log &
             echo "Medusa deployment initiated."
           EOF
