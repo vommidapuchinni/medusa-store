@@ -39,21 +39,24 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
             terraform apply -auto-approve
-            echo "::set-output name=instance_ip::$(terraform output -raw instance_ip)"  # Capture the public IP
+            echo "EC2 instance IP: $(terraform output -raw instance_ip)"  # Debugging output
+            echo "instance_ip=$(terraform output -raw instance_ip)" >> $GITHUB_ENV  # Set output for next steps
           elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
           fi
         working-directory: ./terraform
 
-      # Step 5: (Optional) Post deployment tasks for `apply` (Install Medusa, etc.)
+      # Step 5: Install Medusa on EC2 (only for apply)
       - name: Install Medusa on EC2 (only for apply)
         if: ${{ github.event.inputs.action == 'apply' }}
         env:
-          EC2_PUBLIC_IP: ${{ steps.terraform_apply.outputs.instance_ip }}  # Use terraform output for instance IP
+          EC2_PUBLIC_IP: ${{ env.instance_ip }}  # Use terraform output for instance IP
           PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}  # SSH private key from GitHub secrets
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
+          echo "Attempting to SSH into: $EC2_PUBLIC_IP"
+          
           ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@"${EC2_PUBLIC_IP}" << 'EOF'
             sudo apt update -y
             sudo apt install -y nodejs npm postgresql postgresql-contrib redis git
