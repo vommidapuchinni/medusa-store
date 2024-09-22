@@ -47,12 +47,18 @@ jobs:
 
       - name: Get Terraform Output (JSON)
         if: github.event.inputs.action == 'apply'
-        run: terraform output -json > output.json
+        run: |
+          terraform output -json > output.json
+          cat output.json  # Display the output for debugging
         working-directory: ./terraform
 
-      - name: Display Output.json Content
+      - name: Check Output.json Validity
         if: github.event.inputs.action == 'apply'
-        run: cat output.json
+        run: |
+          if ! jq empty output.json; then
+            echo "Error: Invalid JSON format in output.json"
+            exit 1
+          fi
         working-directory: ./terraform
 
       - name: Extract EC2 Instance IP from JSON
@@ -66,7 +72,6 @@ jobs:
           fi
           echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
         working-directory: ./terraform
-        shell: bash
 
       - name: Wait for EC2 Instance
         if: github.event.inputs.action == 'apply'
