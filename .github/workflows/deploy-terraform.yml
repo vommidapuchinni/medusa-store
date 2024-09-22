@@ -49,6 +49,7 @@ jobs:
         if: github.event.inputs.action == 'apply'
         run: |
           terraform output -json > output.json
+          echo "Output.json content:"
           cat output.json  # Display the output for debugging
         working-directory: ./terraform
 
