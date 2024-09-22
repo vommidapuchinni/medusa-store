@@ -56,7 +56,7 @@ jobs:
       - name: Set Instance IP
         run: |
           # Get the instance IP from Terraform output, remove quotes and trim whitespace
-          instance_ip=$(terraform output -raw instance_ip | tr -d '"' | xargs)
+          instance_ip=$(terraform output -raw instance_ip 2>/dev/null | tr -d '"' | xargs)
           echo "Raw output from Terraform: '$instance_ip'"  # Debugging line to show raw output
 
           # Check if the output is empty
@@ -76,7 +76,7 @@ jobs:
             echo "No valid instance IP found. Output was: '$instance_ip'"  # Include output for debugging
             exit 1
           fi
-          shell: /usr/bin/bash --noprofile --norc -e -o pipefail
+        shell: /usr/bin/bash --noprofile --norc -e -o pipefail
         working-directory: ./terraform
 
       - name: Terraform Destroy
