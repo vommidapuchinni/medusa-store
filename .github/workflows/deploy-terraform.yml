@@ -61,6 +61,7 @@ jobs:
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+            set -e
             # Install git if not already installed
             sudo apt update -y
             sudo apt install -y git
@@ -80,6 +81,7 @@ jobs:
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+            set -e
             # Update and install required packages
             sudo apt update -y
             sudo apt install -y nodejs npm postgresql postgresql-contrib redis
@@ -92,7 +94,7 @@ jobs:
 
             # Set up PostgreSQL for Medusa
             sudo -u postgres psql -c "CREATE DATABASE medusa_db;"
-            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD 'chinni';"
+            sudo -u postgres psql -c "CREATE USER medusa_user WITH PASSWORD '${{ secrets.DB_PASSWORD }}';"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE medusa_db TO medusa_user;"
           EOF
 
@@ -106,6 +108,7 @@ jobs:
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USER@$HOST << 'EOF'
+            set -e
             cd /home/ubuntu/medusa-store/
             npm install
             npm run clean
@@ -118,8 +121,3 @@ jobs:
             nohup npm run start > medusa.log 2>&1 &
             echo "Medusa application started. Logs can be found in medusa.log"
           EOF
-
-      # Step 8: Clean up the private key file
-      - name: Clean up private key
-        run: |
-          rm private_key.pem
