@@ -76,7 +76,7 @@ jobs:
             echo "No valid instance IP found. Output was: '$instance_ip'"  # Include output for debugging
             exit 1
           fi
-        shell: /usr/bin/bash --noprofile --norc -e -o pipefail
+        shell: bash
         working-directory: ./terraform
 
       - name: Terraform Destroy
