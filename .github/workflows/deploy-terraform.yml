@@ -41,7 +41,7 @@ jobs:
           if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
             terraform apply -auto-approve
             INSTANCE_IP=$(terraform output -raw instance_ip)
-            echo "INSTANCE_IP=${INSTANCE_IP}" >> $GITHUB_ENV  # Set INSTANCE_IP correctly
+            echo "INSTANCE_IP=${INSTANCE_IP}" >> $GITHUB_ENV
           elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
             terraform destroy -auto-approve
             echo "Infrastructure destroyed."
@@ -51,7 +51,7 @@ jobs:
       - name: Clone repository on EC2
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ env.INSTANCE_IP }}  # Use the captured instance IP
+          HOST: ${{ steps.terraform_action.outputs.INSTANCE_IP }}  # Use the captured instance IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
@@ -76,7 +76,7 @@ jobs:
       - name: SSH into EC2 and clone the repository
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ env.INSTANCE_IP }}  # Use the captured instance IP
+          HOST: ${{ steps.terraform_action.outputs.INSTANCE_IP }}  # Use the captured instance IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
@@ -89,7 +89,7 @@ jobs:
       - name: SSH into EC2 and install dependencies
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  
-          HOST: ${{ env.INSTANCE_IP }}  # Use the captured instance IP
+          HOST: ${{ steps.terraform_action.outputs.INSTANCE_IP }}  # Use the captured instance IP
           USER: ubuntu                                 
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
