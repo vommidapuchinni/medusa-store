@@ -42,6 +42,7 @@ jobs:
       - name: Push Docker Image to ECR
         run: |
           IMAGE_NAME=medusa-repo
+          TAG=$(date +%Y%m%d%H%M%S)  # Re-defining TAG here
           ECR_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME
           echo "Pushing to ECR URI: $ECR_URI"  # Debug output
           echo "Pushing image with TAG: $TAG"  # Debug output
@@ -53,4 +54,3 @@ jobs:
 
       - name: Logout from ECR
         run: docker logout
-
