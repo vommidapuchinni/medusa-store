@@ -19,6 +19,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
         with:
+          region: us-east-1  # Specify the region here
           mask-password: false
           registry-type: private
           skip-logout: false
@@ -26,8 +27,6 @@ jobs:
       - name: Create ECR Repository
         id: create_ecr
         run: |
-          # Set AWS_REGION for CLI commands
-          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
           aws ecr create-repository --repository-name medusa-repo --region us-east-1 || echo "ECR repository already exists"
 
       - name: Build Docker Image
