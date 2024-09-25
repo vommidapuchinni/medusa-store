@@ -36,16 +36,20 @@ jobs:
         run: |
           IMAGE_NAME=medusa-repo
           TAG=$(date +%Y%m%d%H%M%S)
+          echo "Building Docker image with TAG: $TAG"  # Debug output
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG .
 
       - name: Push Docker Image to ECR
         run: |
           IMAGE_NAME=medusa-repo
+          ECR_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME
+          echo "Pushing to ECR URI: $ECR_URI"  # Debug output
+          echo "Pushing image with TAG: $TAG"  # Debug output
           # Tag and push the Docker image to ECR
-          docker tag $IMAGE_NAME:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
-          docker tag $IMAGE_NAME:$TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$TAG
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$TAG
+          docker tag $IMAGE_NAME:latest $ECR_URI:latest
+          docker tag $IMAGE_NAME:$TAG $ECR_URI:$TAG
+          docker push $ECR_URI:latest
+          docker push $ECR_URI:$TAG
 
       - name: Logout from ECR
         run: docker logout
