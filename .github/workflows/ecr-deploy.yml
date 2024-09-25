@@ -49,13 +49,14 @@ jobs:
           TAG=$(date +%Y%m%d%H%M%S)
           echo "Building Docker image with TAG: $TAG"  # Debug output
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG .
+          echo "TAG=$TAG" >> $GITHUB_ENV  # Set TAG as an environment variable for later steps
           echo "Images available after build:"
           docker images  # Debug output to list images
 
       - name: Push Docker Image to ECR
         run: |
           IMAGE_NAME=medusa-repo
-          TAG=$(date +%Y%m%d%H%M%S)  # Ensure this matches the build TAG
+          TAG=${{ env.TAG }}  # Use the TAG set in the previous step
           ECR_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME
           echo "Pushing to ECR URI: $ECR_URI"  # Debug output
           echo "Pushing image with TAG: $TAG"  # Debug output
