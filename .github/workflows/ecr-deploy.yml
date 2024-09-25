@@ -3,7 +3,7 @@ name: Build and Push Docker Image to ECR
 on:
   push:
     branches:
-      - master  # Change this to your default branch if it's different
+      - master  # This triggers the workflow on push to the master branch
 
 jobs:
   build:
@@ -19,12 +19,16 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
         with:
-          region: ${{ secrets.AWS_REGION }}  # Add the AWS region here
+          mask-password: false
+          registry-type: private
+          skip-logout: false
 
       - name: Create ECR Repository
         id: create_ecr
         run: |
-          aws ecr create-repository --repository-name medusa-repo --region ${{ secrets.AWS_REGION }} || echo "ECR repository already exists"
+          # Set AWS_REGION for CLI commands
+          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+          aws ecr create-repository --repository-name medusa-repo --region us-east-1 || echo "ECR repository already exists"
 
       - name: Build Docker Image
         run: |
@@ -35,10 +39,11 @@ jobs:
       - name: Push Docker Image to ECR
         run: |
           IMAGE_NAME=medusa-repo
-          docker tag $IMAGE_NAME:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
-          docker tag $IMAGE_NAME:$TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$TAG
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$TAG
+          # Tag and push the Docker image to ECR
+          docker tag $IMAGE_NAME:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:latest
+          docker tag $IMAGE_NAME:$TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
 
       - name: Logout from ECR
         run: docker logout
