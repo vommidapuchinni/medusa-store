@@ -14,12 +14,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2  # Updated to v2
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
         with:
-          region: us-east-1  # Specify the region here
           mask-password: false
           registry-type: private
           skip-logout: false
