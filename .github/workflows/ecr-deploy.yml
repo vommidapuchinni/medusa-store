@@ -43,22 +43,27 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
       - name: Build Docker Image
+        id: build_image
         run: |
           IMAGE_NAME=medusa-repo
           TAG=$(date +%Y%m%d%H%M%S)
           echo "Building Docker image with TAG: $TAG"  # Debug output
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG .
+          echo "Images available after build:"
+          docker images  # Debug output to list images
 
       - name: Push Docker Image to ECR
         run: |
           IMAGE_NAME=medusa-repo
-          TAG=$(date +%Y%m%d%H%M%S)  # Re-defining TAG here
+          TAG=$(date +%Y%m%d%H%M%S)  # Ensure this matches the build TAG
           ECR_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME
           echo "Pushing to ECR URI: $ECR_URI"  # Debug output
           echo "Pushing image with TAG: $TAG"  # Debug output
           # Tag and push the Docker image to ECR
           docker tag $IMAGE_NAME:latest $ECR_URI:latest
           docker tag $IMAGE_NAME:$TAG $ECR_URI:$TAG
+          echo "Images available before push:"
+          docker images  # Debug output to list images before pushing
           docker push $ECR_URI:latest
           docker push $ECR_URI:$TAG
 
