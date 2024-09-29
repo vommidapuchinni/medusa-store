@@ -51,7 +51,8 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
         with:
-          region: us-east-1
+          registries: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          registry-type: private
 
       # Step 6: Build Docker Image
       - name: Build Docker Image
