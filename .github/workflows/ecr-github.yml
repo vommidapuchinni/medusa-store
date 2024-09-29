@@ -1,4 +1,4 @@
-name: Deploy Medusa to ECS Fargate Spot
+name: CI/CD Pipeline for Medusa Deployment on ECS Fargate Spot
 
 on:
   workflow_dispatch:
@@ -21,19 +21,19 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      # Step 2: Setup Terraform environment
-      - name: Setup Terraform
+      # Step 2: Set up Terraform environment
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: 1.0.0
 
-      # Step 3: Terraform Init
+      # Step 3: Initialize Terraform (in ecs-fargate directory)
       - name: Terraform Init
         working-directory: ./ecs-fargate
         run: terraform init
 
-      # Step 4: Terraform Apply or Destroy
-      - name: Terraform Apply/Destroy
+      # Step 4: Apply or Destroy Terraform Resources based on user input
+      - name: Terraform Apply or Destroy
         working-directory: ./ecs-fargate
         run: |
           if [ "${{ github.event.inputs.action }}" == "apply" ]; then
@@ -49,37 +49,43 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1  # Ensure the region is set
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
       # Step 5: Log in to Amazon ECR
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
         with:
-          registries: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
           registry-type: private
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}   # Use your AWS Access Key
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # Use your AWS Secret Access Key
-          AWS_REGION: us-east-1  # Specify the AWS region
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # Step 6: Build Docker Image
+      # Step 6: Build Docker Image for Medusa
       - name: Build Docker Image
         run: |
-          docker build -t medusa-app:latest .
+          IMAGE_NAME=medusa-app
+          TAG=$(date +%Y%m%d%H%M%S)
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG .
+          echo "TAG=$TAG" >> $GITHUB_ENV  # Save the tag for later steps
 
-      # Step 7: Tag Docker Image
-      - name: Tag Docker Image
-        run: |
-          docker tag medusa-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/medusa-app:latest
-
-      # Step 8: Push Docker image to ECR
+      # Step 7: Tag and Push Docker Image to ECR
       - name: Push Docker Image to ECR
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/medusa-app:latest
+          IMAGE_NAME=medusa-app
+          TAG=${{ env.TAG }}
+          ECR_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/$IMAGE_NAME
+          docker tag $IMAGE_NAME:latest $ECR_URI:latest
+          docker tag $IMAGE_NAME:$TAG $ECR_URI:$TAG
+          docker push $ECR_URI:latest
+          docker push $ECR_URI:$TAG
 
-      # Step 9: Show Terraform Outputs (only if "apply" is selected)
+      # Step 8: Show Terraform Outputs (only if "apply" is selected)
       - name: Show Terraform Outputs
         if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: ./ecs-fargate
         run: terraform output
+
+      # Step 9: Log out from ECR
+      - name: Logout from ECR
+        run: docker logout
