@@ -37,14 +37,19 @@ jobs:
         working-directory: ./ecs-fargate
         run: |
           if [ "${{ github.event.inputs.action }}" == "apply" ]; then
+            echo "Applying Terraform changes..."
             terraform apply -auto-approve
           elif [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            echo "Destroying Terraform resources..."
             terraform destroy -auto-approve
+          else
+            echo "Invalid action specified."
+            exit 1
           fi
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-east-1  # Ensure the region is set
 
       # Step 5: Log in to Amazon ECR
       - name: Login to Amazon ECR
@@ -53,6 +58,10 @@ jobs:
         with:
           registries: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
           registry-type: private
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}   # Use your AWS Access Key
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # Use your AWS Secret Access Key
+          AWS_REGION: us-east-1  # Specify the AWS region
 
       # Step 6: Build Docker Image
       - name: Build Docker Image
