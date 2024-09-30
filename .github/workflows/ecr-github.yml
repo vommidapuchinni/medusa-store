@@ -27,11 +27,9 @@ jobs:
         with:
           terraform_version: 1.0.0
 
-      # Debug Step: Print the action input
+      # Debug Step: Print the action input directly
       - name: Debug Action Input
-        run: echo "Action selected: $ACTION"
-        env:
-          ACTION: ${{ github.event.inputs.action }}
+        run: echo "Action selected: ${{ github.event.inputs.action }}"
 
       # Step 3: Initialize Terraform (in ecs-fargate directory)
       - name: Terraform Init
@@ -42,20 +40,19 @@ jobs:
       - name: Terraform Apply or Destroy
         working-directory: ./ecs-fargate
         run: |
-          echo "Action is $ACTION"
-          if [ "$ACTION" == "apply" ]; then
+          echo "Action is ${{ github.event.inputs.action }}"
+          if [ "${{ github.event.inputs.action }}" == "apply" ]; then
             echo "Applying Terraform changes..."
             terraform apply -auto-approve
-          elif [ "$ACTION" == "destroy" ]; then
+          elif [ "${{ github.event.inputs.action }}" == "destroy" ]; then
             echo "Planning Terraform destruction..."
             terraform plan -destroy  # Optional, useful for debugging
             echo "Destroying Terraform resources..."
             terraform destroy -auto-approve
           else
-            echo "Invalid action specified: $ACTION"
+            echo "Invalid action specified: ${{ github.event.inputs.action }}"
             exit 1
         env:
-          ACTION: ${{ github.event.inputs.action }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
