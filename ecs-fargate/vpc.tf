@@ -3,6 +3,14 @@ provider "aws" {
   region = "us-east-1"
 }
 
+terraform {
+  backend "s3" {
+    bucket = "terraform-statefile-medusa"
+    key    = "terraform/state"
+    region = "us-east-1"
+  }
+}
+
 # VPC and Networking
 resource "aws_vpc" "medusa_vpc" {
   cidr_block           = "10.0.0.0/16"

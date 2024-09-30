@@ -101,3 +101,6 @@ jobs:
       # Step 9: Log out from ECR
       - name: Logout from ECR
         run: docker logout
+
+
+
