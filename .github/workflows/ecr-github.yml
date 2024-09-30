@@ -54,13 +54,15 @@ jobs:
           else
             echo "Invalid action specified."
             exit 1
+          fi  # Properly closing the if statement
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # Step 5: Log in to Amazon ECR
+      # Step 5: Log in to Amazon ECR (only for 'apply' action)
       - name: Login to Amazon ECR
+        if: ${{ github.event.inputs.action == 'apply' }}
         uses: aws-actions/amazon-ecr-login@v1
         with:
           registry-type: private
