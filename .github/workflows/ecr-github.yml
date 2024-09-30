@@ -27,9 +27,12 @@ jobs:
         with:
           terraform_version: 1.0.0
 
-      # Debug Step: Print the action input directly to verify
+      # Debug Step: Assign action input to environment variable and print it
       - name: Debug Action Input
-        run: echo "Action selected: ${{ github.event.inputs.action }}"
+        run: |
+          echo "Action selected: ${{ github.event.inputs.action }}"
+          ACTION=${{ github.event.inputs.action }}
+          echo "The action is: $ACTION"
 
       # Step 3: Initialize Terraform (in ecs-fargate directory)
       - name: Terraform Init
@@ -40,11 +43,12 @@ jobs:
       - name: Terraform Apply or Destroy
         working-directory: ./ecs-fargate
         run: |
-          echo "Action is ${{ github.event.inputs.action }}"
-          if [ "${{ github.event.inputs.action }}" == "apply" ]; then
+          ACTION=${{ github.event.inputs.action }}
+          echo "Action is $ACTION"
+          if [ "$ACTION" == "apply" ]; then
             echo "Applying Terraform changes..."
             terraform apply -auto-approve
-          elif [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+          elif [ "$ACTION" == "destroy" ]; then
             echo "Destroying Terraform resources..."
             terraform destroy -auto-approve
           else
@@ -95,4 +99,3 @@ jobs:
       # Step 9: Log out from ECR
       - name: Logout from ECR
         run: docker logout
-
