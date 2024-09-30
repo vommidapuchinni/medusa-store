@@ -27,23 +27,31 @@ jobs:
         with:
           terraform_version: 1.0.0
 
+      # Debug Step: Print the action input
+      - name: Debug Action Input
+        run: echo "Action selected: ${{ github.event.inputs.action }}"
+
       # Step 3: Initialize Terraform (in ecs-fargate directory)
       - name: Terraform Init
         working-directory: ./ecs-fargate
         run: terraform init
 
-      # Step 4: Apply or Destroy Terraform Resources based on user input
+      # Step 4: Plan and Apply or Destroy Terraform Resources based on user input
       - name: Terraform Apply or Destroy
         working-directory: ./ecs-fargate
         run: |
-          if [ "${{ github.event.inputs.action }}" == "apply" ]; then
+          ACTION=${{ github.event.inputs.action }}
+          echo "Action is $ACTION"
+          if [ "$ACTION" == "apply" ]; then
             echo "Applying Terraform changes..."
             terraform apply -auto-approve
-          elif [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+          elif [ "$ACTION" == "destroy" ]; then
+            echo "Planning Terraform destruction..."
+            terraform plan -destroy  # Optional, useful for debugging
             echo "Destroying Terraform resources..."
             terraform destroy -auto-approve
           else
-            echo "Invalid action specified."
+            echo "Invalid action specified: $ACTION"
             exit 1
           fi
         env:
@@ -61,16 +69,18 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
 
-      # Step 6: Build Docker Image for Medusa
+      # Step 6: Build Docker Image for Medusa (only for 'apply' action)
       - name: Build Docker Image
+        if: ${{ github.event.inputs.action == 'apply' }}
         run: |
           IMAGE_NAME=medusa-app
           TAG=$(date +%Y%m%d%H%M%S)
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG .
           echo "TAG=$TAG" >> $GITHUB_ENV  # Save the tag for later steps
 
-      # Step 7: Tag and Push Docker Image to ECR
+      # Step 7: Tag and Push Docker Image to ECR (only for 'apply' action)
       - name: Push Docker Image to ECR
+        if: ${{ github.event.inputs.action == 'apply' }}
         run: |
           IMAGE_NAME=medusa-app
           TAG=${{ env.TAG }}
@@ -80,7 +90,7 @@ jobs:
           docker push $ECR_URI:latest
           docker push $ECR_URI:$TAG
 
-      # Step 8: Show Terraform Outputs (only if "apply" is selected)
+      # Step 8: Show Terraform Outputs (only if 'apply' is selected)
       - name: Show Terraform Outputs
         if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: ./ecs-fargate
@@ -89,3 +99,4 @@ jobs:
       # Step 9: Log out from ECR
       - name: Logout from ECR
         run: docker logout
+
